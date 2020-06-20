@@ -1,0 +1,175 @@
+---
+title: "Visualizing priors"
+subtitle: "<br/>With great power comes great responsibility: Stan for modern ecological modelling"
+author: "Andrew MacDonald"
+date: "`r Sys.Date()`"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+
+---
+class: inverse, center, middle
+
+# setup
+
+---
+
+# Tools we'll use
+
+* brms
+* tidybayes
+
+```{r eval=FALSE, tidy=FALSE}
+devtools::install_github()
+```
+
+--
+
+- Click the `Knit` button to compile it;
+
+---
+
+![](img/gabry_et_al_fig.png)
+
+.footnote[
+Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman. « Visualization in Bayesian Workflow ». Journal of the Royal Statistical Society: Series A (Statistics in Society) 182 (2): 389‑402. https://doi.org/10.1111/rssa.12378.
+]
+---
+
+# remark.js vs xaringan
+
+Some differences between using remark.js (left) and using **xaringan** (right):
+
+.pull-left[
+1. Start with a boilerplate HTML file;
+
+1. Plain Markdown;
+
+1. Write JavaScript to autoplay slides;
+
+1. Manually configure MathJax;
+
+1. Highlight code with `*`;
+
+1. Edit Markdown source and refresh browser to see updated slides;
+]
+
+.pull-right[
+1. Start with an R Markdown document;
+
+1. R Markdown (can embed R/other code chunks);
+
+1. Provide an option `autoplay`;
+
+1. MathJax just works;<sup>*</sup>
+
+1. Highlight code with `{{}}`;
+
+1. The RStudio addin "Infinite Moon Reader" automatically refreshes slides on changes;
+]
+
+.footnote[[*] Not really. See next page.]
+
+---
+
+# Bayesian models
+
+$$
+\begin{align}
+F_i & \sim \text{Poisson}(\lambda_i) \\
+\text{log}(\lambda_i) &= \alpha + \beta x \\
+\alpha & \sim \text{Normal}(??, ??) \\
+\beta & \sim \text{Normal}(??, ??)
+\end{align}
+$$
+
+---
+
+# Bayesian models
+
+$$
+\begin{align}
+F_i & \sim \text{Poisson}(\lambda_i) \\
+\text{log}(\lambda_i) &= \alpha + \beta x \\
+\alpha & \sim \text{Normal}(0, 1000) \\
+\beta & \sim \text{Normal}(0, 1000)
+\end{align}
+$$
+
+.footnote[as seen in Kéry & Royle 2016 p 188]
+
+---
+
+# what does this prior mean
+
+lets do an example about my favourites: fly larvae! 
+
+(picture of a lil fly)
+
+(a model)
+
+---
+
+# either no flies at all.. or a huge planet of maggots
+
+etc
+
+---
+
+# A quick look at the math for those curious
+
+$$
+\begin{align}
+\text{log}(\lambda) &= \alpha + \beta x \\
+\lambda &= e^{\alpha + \beta x} \\
+\lambda &= e^{\alpha}e^{\beta x} \\
+\end{align}
+$$
+
+And since $N(0,1000)$ implies that -1000 and +1000 are entirely reasonable..
+
+.pull-left[
+* $2.72^{-1000}\times 2.72^{-1000}$
+* (practically zero)
+]
+
+.pull-right[
+* $2.72^{1000}\times 2.72^{1000}$
+* (..kind of a lot)
+]
+
+
+---
+class: inverse, center, middle
+
+# So what _is_ a good prior?
+
+---
+
+![](img/gabry_et_al_fig.png)
+
+.footnote[
+Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman. « Visualization in Bayesian Workflow ». Journal of the Royal Statistical Society: Series A (Statistics in Society) 182 (2): 389‑402. https://doi.org/10.1111/rssa.12378.
+]
+
+---
+
+# syntax: brms
+
+---
+
+# syntax: setting priors
+
+---
+
+exercises -- les poissons
