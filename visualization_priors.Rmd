@@ -162,7 +162,13 @@ insect_samples <- brm(insects_bf,
 
 ---
 
+# Exercise I -- Fly larvae
 
+* see the file `insects.R` on [github](https://github.com/aammd/ISEC_stan_course/blob/996eb5b2f49c52b0290c63a6635f925104bb623b/insects.R)
+
+* on your own or in a small group, experiment with setting priors for insect abundances.
+* AND/OR consider an animal or plant which is more relevant to you 
+* or stay with insects even if that is not your specialty, and set "vague" priors!
 
 ---
 
