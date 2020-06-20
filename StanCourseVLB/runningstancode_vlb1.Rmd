@@ -1,0 +1,64 @@
+---
+title: "Stan pt 3 -- R + Stan Code"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rstan)
+library(ggplot2)
+library(tidyverse)
+
+```
+
+## Simulating Data
+
+```{r, simulatedata}
+set.seed(17)
+
+
+## hierarchical part
+beta1 <- rnorm(20, 0, sd=0.5)
+beta2 <- rnorm(20, 0, sd=0.5)
+
+alpha <- numeric(3)
+alpha[1] <- 0.1
+alpha[2] <- -0.3
+alpha[3] <- 0.01
+
+## number of `sharks` = 20
+
+sex <- rbinom(20, size=1, prob=0.5)
+size <- rpois(20, lambda=200) ## in cm
+
+y <- list()
+for(n in 1:20){
+  y[[n]] <- data.frame(Shark = paste("Shark", n), 
+                       Size = size[n], 
+                       Sex = sex[n], 
+                       timecos = cos(2*pi*1:365/365), 
+                       timesin = sin(2*pi*1:365/365))%>%
+    mutate(Presence = rbinom(n = 365, size = 1, 
+                             prob = plogis(alpha[1] + alpha[2]*Sex + alpha[3]*(Size-220) + beta1[n]*timecos + beta2[n]*timesin)))
+}
+
+
+sharkfun <- bind_rows(y)
+
+```
+
+
+## Running the Stan models
+
+
+
+
+```{r}
+data1 <- list(y= sharkfun$Presence)
+fit1 <- stan(file = "logregmodel1.stan", data=data1)
+fit1
+```
+
