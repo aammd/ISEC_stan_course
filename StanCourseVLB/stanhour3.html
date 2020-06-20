@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+  <head>
+    <title>Stan @ ISEC 2020</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="The Crew" />
+    <meta name="date" content="2020-06-20" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Stan @ ISEC 2020
+### The Crew
+### 20 June 2020
+
+---
+
+class: inverse, center, middle
+
+
+
+
+
+# Building a Logistic Regression Model
+
+
+---
+## Cabo Pulmo, Baja California Sur, México
+
+.center[![cabo pulmo](photos/cabopulmosearch.png)]
+
+---
+## Pelagios Kakunjá -- Bull Shark Data
+
+Frida Lara -- http://migramar.org/hi/en/lara/
+
+James Ketchum -- https://www.pelagioskakunja.org/james-ketchum
+
+.center[![pelagios](photos/pelagioskakunja.png)]
+
+https://www.pelagioskakunja.org/
+
+
+---
+## Presence/Absence Data from an Acoustic Array 
+
+.pull-left[
+`\(Y\)` can takes on the value of `1` when the shark is detected, and `0` when it is not. 
+
+Observation Process: 
+
+
+$$
+Y \sim Bernoulli(p)
+$$
+
+Prior: 
+
+$$
+p \sim unif(0, 1)
+$$
+$$
+p \sim beta(1, 1)
+$$
+]
+
+.pull-right[
+Photo by Miguel Grau Gómez: 
+
+&lt;img src="photos/bullshark_acousticarray.jpg" width="70%" /&gt;
+]
+
+---
+## Stan Code
+  
+
+```stan
+
+data{
+  int&lt;lower=1&gt; TT;
+  int y[TT];
+}
+
+parameters{
+  real&lt;lower=0, upper=1&gt; p;
+}
+
+
+model{
+
+  p ~ uniform(0, 1);
+  //p ~ beta(1,1);
+
+  y ~ bernoulli(p);
+}
+
+```
+
+.footnote[Order doesn't matter in the model code.]
+
+
+---
+class: center
+### Priors over the interval (0,1): 
+
+Combinations: 
+
+( `\(\nu_1 = 1, \nu_2=1\)` ), ( `\(\nu_1=2, \nu_2=1\)` ) , ( `\(\alpha=1, \beta=2\)` )
+
+( `\(\alpha=10, \beta=1\)` ), ( `\(\alpha=1, \beta=10\)` ), ( `\(\alpha=10, \beta=10\)` )
+
+![](stanhour3_files/figure-html/unnamed-chunk-3-1.png)&lt;!-- --&gt;
+
+
+---
+### Is the probability constant over time? 
+
+`\(Y\)` can takes on the value of `1` when the shark is detected, and `0` when it is not. 
+
+
+$$
+Y_t \sim Bernoulli(p_t)
+$$
+
+$$
+logit(p_t) = f(t)
+$$
+ Commonly, `\(f(t)\)` is expressed as a linear function of parameters and covariate values. 
+ 
+$$
+f(t) = \beta_0 + \beta_1 x_t
+$$
+
+Priors: 
+ 
+`$$\beta_0 \sim N(m_{\beta_0}, sd_{\beta_0})  \qquad \beta_1 \sim N(0, sd_{\beta_1})$$`
+
+.footnote[ `\(f(t)\)` can also be a smooth non-linear function! -- `brms`, `rstanarm`] 
+ 
+
+---
+### Stan Code
+  
+Changes: allowing for time-varying covariates  
+  
+  
+
+```stan
+
+data{
+  int&lt;lower=1&gt; TT;
+  int y[TT];
+
+  int&lt;lower=1&gt; ncov;
+  matrix[TT, ncov + 1] x;
+}
+
+parameters{
+  vector[ncov + 1] beta;
+}
+
+
+model{
+ 
+ beta ~ normal(0, 0.5);
+
+ y ~ bernoulli_logit(x*beta);
+}
+
+```
+
+
+---
+## Accounting for individual size/sex differences
+
+We may expect and want to account for differences across size and sex. 
+
+`$$f(t) = \beta_0 (sex, size) + \beta_1 * x_t$$`
+
+
+
+
+`$$\beta_0 (sex, size) = \alpha_0 + \alpha_1 *male + \alpha_2 *(size - baselinesize)$$`
+
+Where we have: 
+
+
+
+$$
+male = 1 \quad \text{if shark is male (has claspers); zero o.w.}
+$$
+
+$$
+baselinesize: \text{ e.g. size at which the sharks reach maturity, here approx. 220 cm }
+$$
+
+---
+## Stan Code 
+
+Changes: removing intercept term `\(\beta_0\)` and allowing it to reflect baseline differences across sharks. Change `x` to no longer contain a column of ones. 
+  
+.pull-left[  
+
+```stan
+
+data{
+  ...
+  int&lt;lower=1&gt; ncov;
+  matrix[TT, ncov] x;
+  
+  vector[TT] bsize;
+  int sex[TT];
+}
+
+parameters{
+  vector[ncov] beta;
+  vector[3] alpha;
+}
+```
+]
+
+
+.pull-right[
+
+```stan
+
+model{
+ alpha[1] ~ normal(0, 0.5);
+ alpha[2] ~ normal(0, 0.5);
+ //values range from -40 to 40
+ alpha[3] ~ normal(0, 0.1);
+ beta ~ normal(0, 0.5);
+ y ~ bernoulli_logit(alpha[1] + 
+                    alpha[2]*sex + 
+                    alpha[3]*bsize +
+                    x*beta);
+}
+
+```
+]
+
+---
+class: inverse, middle
+# Missing Discrete-Valued Covariates
+## (or categorical covariates)
+
+---
+class: middle, center
+### Marginalizing over discrete-valued covariates/categorical covariates
+
+
+`Law of Total Probability`
+
+`$$P(Y) = \sum_{n=1}^N P(Y|X = x_n)P(X=x_n)$$`
+
+---
+### Marginalizing in the shark example
+Sex `\(\in\)` {female, male}  `\(\rightarrow\)` {0, 1}
+
+
+We go from this: 
+
+$$
+Y_t \sim Bernoulli(p_t)
+$$
+
+
+To: 
+
+$$
+Y_t \sim \pi Bernoulli(p_t(female)) + (1-\pi)Bernoulli(p_t(male))
+$$
+`\(\pi \in (0, 1)\)`
+
+`$$p_t(female) = \beta_0(female, size) + \beta_1x_t$$`
+
+`$$p_t(male) = \beta_0(male, size) + \beta_1x_t$$`
+
+
+Where `\(\pi\)` represents the probability that the shark is female. 
+
+---
+## Stan Code
+Changes: need to identify the observations from the shark that is missing a value for sex.
+
+
+```stan
+data{
+  int&lt;lower=1&gt; TT;
+  int y[TT];
+  
+  //vector with 1 if sex is missing
+  int sexmissing[TT];
+  int&lt;lower=1&gt; ncov;
+  matrix[TT, ncov] x;
+  
+  vector bsize[TT];
+  vector sex[TT];
+
+}
+
+parameters{
+  vector[ncov] beta;
+  vector[3] alpha;
+
+  real&lt;lower=0, upper=1&gt; pi;
+}
+```
+
+
+---
+## Stan Code
+Changes: need to identify the observations from the shark that is missing a value for sex.
+
+
+```stan
+model{
+ ...
+ for(t in 1:TT){
+  if(sexmissing[t] == 1){
+    target += log_mix(pi, 
+                bernoulli_logit_lpmf(y[t] | alpha[1] + 
+                    alpha[3]*bsize +
+                    x[t]*beta), 
+                bernoulli_logit_lpmf(y[t] | alpha[1] + 
+                    alpha[2] + 
+                    alpha[3]*bsize[t] +
+                    x[t]*beta));
+  } else {
+    y[t] ~ bernoulli_logit(alpha[1] +
+                    alpha[2]*sex[t]
+                    alpha[3]*bsize[t] +
+                    x[t]*beta);
+  }
+ }
+}
+```
+
+
+---
+class: inverse
+
+## A very not profound overview of a hierarchical model but definitely an example of one
+
+
+---
+## More differences across individuals
+
+A simple hierarchical model: 
+
+`$$Y_{jt} \sim Bernoulli(p_{jt})$$`
+
+
+
+`$$logit(p_{jt}) = \beta_0 (sex, size) + \beta_{j1} * x_t$$`
+
+
+`$$\beta_{j1} \sim N(\mu, \sigma)$$`
+`$$\mu \sim N(m_{\mu}, s_{\mu}) \quad \sigma \sim N^+(m_{\sigma}, s_{\sigma})$$`
+Why might this be important to include? Aside from the differences across individuals related to their sex and size (related to maturity), the sharks may not all have the same temporal patterns. Some may arrive before others, leave a bit later, and understanding individual variation plays an important role in their conservation. 
+
+---
+## Stan Code
+
+Changes: have an index for individual shark and `\(\beta_1\)` is now a hierarchical term in the model
+
+
+
+```stan
+data{
+   ...
+  int no.sharks;
+  vector[TT] sharkid;
+}
+
+parameters{
+  ...
+  vector[no.sharks] beta;
+  real betamu;
+  real&lt;lower=0&gt; betasig;
+}
+```
+
+---
+## Stan Code
+
+Changes: have an index for individual shark and `\(\beta_1\)` is now a hierarchical term in the model
+
+
+
+```stan
+model{
+ alpha[1] ~ normal(0, 0.5);
+ alpha[2] ~ normal(0, 0.5);
+ //values range from -40 to 40
+ alpha[3] ~ normal(0, 0.1);
+ 
+ betamu ~ normal(0, 0.1);
+ betasig ~ normal(0, 0.1);
+ 
+ beta ~ normal(betamu, betasig);
+
+ y[t] ~ bernoulli_logit(alpha[1] + alpha[2]*sex[t] +
+                       alpha[3]*bsize[t] + x[t]*beta[sharkid]);
+
+}
+
+```
+
+---
+class: inverse
+# Model Assessment: 
+
+# To Describe, Explain or Predict? 
+
+
+
+
+---
+### Describe(/Explain): 
+
+- Use full data set to fit model
+- Evaluate posterior predictive checks
+- For logistic regression, `binned residuals for discrete data`
+
+
+Bayesian Data Analysis: http://www.stat.columbia.edu/~gelman/book/ (pg 157-158)
+
+Galit Shmueli's: To Explain or Predict? https://www.stat.berkeley.edu/~aldous/157/Papers/shmueli.pdf
+
+---
+class: inverse 
+## Predict: `projpred`
+
+### Projection predictive variable selection
+
+
+
+```r
+library(rstanarm)
+library(projpred)
+library(ggplot2)
+library(bayesplot)
+theme_set(theme_classic())
+```
+
+https://mc-stan.org/projpred/articles/quickstart.html
+
+---
+### projpred
+
+Back to the fixed effects for a minute: 
+
+
+```r
+n &lt;- 4000
+D &lt;- 5
+p0 &lt;- 2 # prior guess for the number of relevant variables
+tau0 &lt;- p0/(D-p0) * 1/sqrt(n) 
+# regularized horseshoe prior
+prior_coeff &lt;- hs(global_scale = tau0, slab_scale = 1) 
+
+
+logregcov.horseshoe &lt;- stan_glm(formula = Presence~., 
+                      family = binomial(link="logit"), 
+                      data = sharkfun, 
+                      prior = hs(global_scale = 0.03049858, 
+                                 slab_scale = 1))
+
+logregcov.defaultpriors &lt;- stan_glm(formula = Presence~., 
+                      family = binomial(link="logit"), 
+                      data = sharkfun)
+
+logregcov.n01 &lt;- stan_glm(formula = Presence~., 
+                      family = binomial(link="logit"), 
+                      data = sharkfun, 
+                      prior = normal(0,1))
+```
+
+---
+### projpred (cont.)
+
+K-fold Cross-Validation: 
+
+
+```r
+cvs.horseshoe &lt;- cv_varsel(logregcov.horseshoe, 
+                           method='forward', 
+                           cv_method='kfold', K=5)
+
+cvplot.horseshoe &lt;- varsel_plot(cvs.horseshoe, 
+                                stats=c('elpd, acc'))  + 
+  theme_minimal() + theme(text=element_text(size=15), 
+                          legend.position = "none") + 
+  ggtitle("Classification Accuracy (5-fold CV)")
+```
+
+---
+### What you can get from projpred: 
+
+-- Out-of-sample and In-sample accuracies
+
+
+```r
+## out of sample predictive accuracies
+cvplot.horseshoe
+```
+
+
+-- Suggested size of the models
+
+
+```r
+## suggested size
+suggest_size(cvs)
+```
+
+
+-- Order of the variables
+
+```r
+vs &lt;- varsel(logregcov.horseshoe, method='forward')
+vs$vind
+varsel_plot(vs, stats=c('elpd', 'acc'), deltas=F)
+
+#----------
+
+cvs.horseshoe$vind
+```
+
+---
+### Other: Occupancy Models
+
+
+Observation process: 
+
+`$$Y \sim Bernoulli(Zp)$$`
+Latent process: 
+
+`$$Z \sim Bernoulli(\psi)$$`
+
+
+`\(Z\)` -- True occupancy
+
+`\(p\)` -- Detection probability
+
+Not logistic regression as usually thought of, but similar structure and can easily put into Stan as well. Can extend to Binomial/Poisson structures. 
+
+
+---
+class: inverse, center
+### Last Slide for Now
+
+Check out: https://stanecology.github.io
+
+![](https://media.giphy.com/media/IoP0PvbbSWGAM/giphy.gif)
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "solarized-light",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();</script>
+
+<script>
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

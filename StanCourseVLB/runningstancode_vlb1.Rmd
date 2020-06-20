@@ -1,0 +1,190 @@
+---
+title: "Stan pt 3 -- R + Stan Code"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rstan)
+library(ggplot2)
+library(tidyverse)
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+```
+
+## Simulating Data
+
+```{r, simulatedata, warning=FALSE, message=FALSE}
+set.seed(17)
+
+
+## hierarchical part
+beta1 <- rnorm(20, 0, sd=0.5)
+beta2 <- rnorm(20, 0, sd=0.5)
+
+alpha <- numeric(3)
+alpha[1] <- 0.1
+alpha[2] <- -0.3
+alpha[3] <- 0.01
+
+## number of `sharks` = 20
+
+sex <- rbinom(20, size=1, prob=0.5)
+size <- rpois(20, lambda=200) ## in cm
+
+y <- list()
+for(n in 1:20){
+  y[[n]] <- data.frame(Shark = paste("Shark", n), 
+                       Size = size[n], 
+                       Sex = sex[n], 
+                       timecos = cos(2*pi*1:365/365), 
+                       timesin = sin(2*pi*1:365/365))%>%
+    mutate(Presence = rbinom(n = 365, size = 1, 
+                             prob = plogis(alpha[1] + alpha[2]*Sex + alpha[3]*(Size-220) + beta1[n]*timecos + beta2[n]*timesin)))
+}
+
+
+sharkfun <- dplyr::bind_rows(y)
+
+```
+
+
+## Running the Stan models
+
+```{r}
+data1 <- list(TT = dim(sharkfun)[1], 
+              y= sharkfun$Presence)
+fit1 <- stan(file = "logregmodel1.stan", data=data1)
+fit1
+```
+
+
+```{r}
+data2 <- list(TT = dim(sharkfun)[1], 
+              y=sharkfun$Presence, 
+              ncov = 2, 
+              x = cbind(1, sharkfun$timecos, sharkfun$timesin))
+
+fit2 <- stan(file = "logregmodel2.stan", data=data2)
+
+```
+
+
+```{r}
+data3 <- list(TT = dim(sharkfun)[1], 
+              y=sharkfun$Presence, 
+              ncov = 2, 
+              x = cbind(sharkfun$timecos, sharkfun$timesin), 
+              bsize = sharkfun$Size - 220, 
+              sex = sharkfun$Sex)
+
+fit3 <- stan(file = "logregmodel3.stan", data=data3)
+
+```
+
+```{r}
+data4 <- list(TT =  dim(sharkfun)[1], 
+              y=sharkfun$Presence, 
+              sexmissing = as.numeric(sharkfun$Shark == "Shark 3"),
+              ncov = 2, 
+              x = cbind(sharkfun$timecos, sharkfun$timesin), 
+              bsize = sharkfun$Size - 220, 
+              sex = sharkfun$Sex)
+
+fit4 <- stan(file = "logregmodel4.stan", data=data4)
+
+```
+
+
+```{r}
+
+data5 <- list(TT =  dim(sharkfun)[1], 
+              y=sharkfun$Presence, 
+              ncov = 2, 
+              x = cbind(sharkfun$timecos, sharkfun$timesin), 
+              bsize = sharkfun$Size - 220, 
+              sex = sharkfun$Sex, 
+              nsharks = 20, 
+              sharkid = rep(1:20, each=365))
+
+fit5 <- stan(file="logregmodel5.stan", data=data5)
+
+
+
+
+```
+
+
+## projpred
+
+```{r}
+
+library(rstanarm)
+library(projpred)
+library(ggplot2)
+library(bayesplot)
+theme_set(theme_classic())
+
+
+n <- 7300
+D <- 5
+p0 <- 2 # prior guess for the number of relevant variables
+tau0 <- p0/(D-p0) * 1/sqrt(n) 
+# regularized horseshoe prior
+prior_coeff <- hs(global_scale = tau0, slab_scale = 1) 
+
+#----------------------------------------------------------------------
+## FITTING THE MODELS
+
+logregcov.horseshoe <- stan_glm(formula = Presence~., 
+                      family = binomial(link="logit"), 
+                      data = sharkfun%>%dplyr::select(-Shark), 
+                      prior = hs(global_scale = 0.007802743, 
+                                 slab_scale = 1))
+
+logregcov.defaultpriors <- stan_glm(formula = Presence~., 
+                      family = binomial(link="logit"), 
+                      data = sharkfun%>%dplyr::select(-Shark))
+
+logregcov.n01 <- stan_glm(formula = Presence~., 
+                      family = binomial(link="logit"), 
+                      data = sharkfun%>%dplyr::select(-Shark), 
+                      prior = normal(0,1))
+
+
+#----------------------------------------------------------------------
+## K-FOLD CROSS-VALIDATION
+
+cvs.horseshoe <- cv_varsel(logregcov.horseshoe, 
+                           method='forward', 
+                           cv_method='kfold', K=5)
+
+cvplot.horseshoe <- varsel_plot(cvs.horseshoe, 
+                                stats=c('elpd, acc'))  + 
+  theme_minimal() + theme(text=element_text(size=15), 
+                          legend.position = "none") + 
+  ggtitle("Classification Accuracy (5-fold CV)")
+
+cvplot.horseshoe
+
+suggest_size(cvs)
+
+vs <- varsel(logregcov.horseshoe, method='forward')
+vs$vind
+varsel_plot(vs, stats=c('elpd', 'acc'), deltas=F)
+
+#----------
+
+cvs.horseshoe$vind
+
+```
+
+
+
+
+
+
