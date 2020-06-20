@@ -23,28 +23,6 @@ class: center, middle, inverse, title-slide
 
 
 
-
----
-class: inverse, center, middle
-
-# setup
-
----
-
-# Tools we'll use
-
-* brms
-* tidybayes
-
-
-```r
-devtools::install_github()
-```
-
---
-
-- Click the `Knit` button to compile it;
-
 ---
 
 ![](img/gabry_et_al_fig.png)
@@ -54,41 +32,6 @@ Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman
 ]
 ---
 
-# remark.js vs xaringan
-
-Some differences between using remark.js (left) and using **xaringan** (right):
-
-.pull-left[
-1. Start with a boilerplate HTML file;
-
-1. Plain Markdown;
-
-1. Write JavaScript to autoplay slides;
-
-1. Manually configure MathJax;
-
-1. Highlight code with `*`;
-
-1. Edit Markdown source and refresh browser to see updated slides;
-]
-
-.pull-right[
-1. Start with an R Markdown document;
-
-1. R Markdown (can embed R/other code chunks);
-
-1. Provide an option `autoplay`;
-
-1. MathJax just works;&lt;sup&gt;*&lt;/sup&gt;
-
-1. Highlight code with `{{}}`;
-
-1. The RStudio addin "Infinite Moon Reader" automatically refreshes slides on changes;
-]
-
-.footnote[[*] Not really. See next page.]
-
----
 
 # Bayesian models
 
@@ -118,19 +61,25 @@ $$
 
 ---
 
-# what does this prior mean
+# what does this prior mean?
 
 lets do an example about my favourites: fly larvae! 
 
-(picture of a lil fly)
+.pull-left[
+![](img/lil_larv.png)
+]
 
-(a model)
-
----
-
-# either no flies at all.. or a huge planet of maggots
-
-etc
+.pull-right[
+$$
+`\begin{align}
+F_i &amp; \sim \text{Poisson}(\lambda_i) \\
+\text{log}(\lambda_i) &amp;= \alpha + \beta x \\
+\alpha &amp; \sim \text{Normal}(0, 1000) \\
+\beta &amp; \sim \text{Normal}(0, 1000)
+\end{align}`
+$$
+where `\(x\)` is some kind of standardized environmental variable
+]
 
 ---
 
@@ -170,17 +119,85 @@ class: inverse, center, middle
 Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman. « Visualization in Bayesian Workflow ». Journal of the Royal Statistical Society: Series A (Statistics in Society) 182 (2): 389‑402. https://doi.org/10.1111/rssa.12378.
 ]
 
+
+---
+
+# either no flies at all.. or a huge planet of maggots 
+
+&lt;img src="img/many_insects.png" style="width: 70%" /&gt;
+
+for comparison, the planet Saturn weighs 5.7 * 10^29 grams
+
 ---
 
 # syntax: brms
+
+```r
+# define formula
+
+insects_bf &lt;- bf(
+abundance ~ 1 + env, 
+family = poisson()
+)
+```
 
 ---
 
 # syntax: setting priors
 
+```r
+get_prior(insects_bf, data = insect_data)
+
+insect_priors &lt;- c(
+  prior(normal(0,100), class = "b", coef = "env"),
+  prior(normal(0,100), class = "Intercept")
+)
+```
+
 ---
 
-exercises -- les poissons
+# syntax: sampling the model
+
+```r
+insect_samples &lt;- brm(insects_bf,
+                      data = insect_data,  # does nothing
+                      prior = insect_priors,
+                      sample_prior = "only")
+```
+
+
+---
+
+# exercises -- les poissons
+
+using data from [Kaggle, about fish](https://www.kaggle.com/aungpyaeap/fish-market)
+
+
+```r
+library(readr)
+fish &lt;- read_csv("https://raw.githubusercontent.com/aammd/ISEC_stan_course/master/Fish.csv")
+
+knitr::kable(head(fish))
+```
+
+
+
+Species    Weight   Length1   Length2   Length3    Height    Width
+--------  -------  --------  --------  --------  --------  -------
+Bream         242      23.2      25.4      30.0   11.5200   4.0200
+Bream         290      24.0      26.3      31.2   12.4800   4.3056
+Bream         340      23.9      26.5      31.1   12.3778   4.6961
+Bream         363      26.3      29.0      33.5   12.7300   4.4555
+Bream         430      26.5      29.0      34.0   12.4440   5.1340
+Bream         450      26.8      29.7      34.7   13.6024   4.9274
+
+---
+
+![](img/fish.png)
+
+---
+
+
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
