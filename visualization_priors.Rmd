@@ -16,16 +16,6 @@ output:
 options(htmltools.dir.version = FALSE)
 ```
 
----
-
-![](img/gabry_et_al_fig.png)
-
-.footnote[
-Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman. « Visualization in Bayesian Workflow ». Journal of the Royal Statistical Society: Series A (Statistics in Society) 182 (2): 389‑402. https://doi.org/10.1111/rssa.12378.
-]
----
-
-
 # Bayesian models
 
 $$
@@ -53,13 +43,40 @@ $$
 .footnote[as seen in Kéry & Royle 2016 p 188]
 
 ---
+class: inverse, center, middle
+
+# So what _is_ a good prior?
+
+---
+
+![](img/gabry_et_al_fig.png)
+
+.footnote[
+Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman. « Visualization in Bayesian Workflow ». Journal of the Royal Statistical Society: Series A (Statistics in Society) 182 (2): 389‑402. https://doi.org/10.1111/rssa.12378.
+]
+
+
+---
+
+# what does this prior mean?
+
+$$
+\begin{align}
+F_i & \sim \text{Poisson}(\lambda_i) \\
+\text{log}(\lambda_i) &= \alpha + \beta x \\
+\alpha & \sim \text{Normal}(0, 1000) \\
+\beta & \sim \text{Normal}(0, 1000)
+\end{align}
+$$
+
+---
 
 # what does this prior mean?
 
 lets do an example about my favourites: fly larvae! 
 
 .pull-left[
-![](img/lil_larv.png)
+<img src="img/lil_larv.png" style="width: 70%" />
 ]
 
 .pull-right[
@@ -97,21 +114,6 @@ And since $N(0,1000)$ implies that -1000 and +1000 are entirely reasonable..
 * $2.72^{1000}\times 2.72^{1000}$
 * (..kind of a lot)
 ]
-
-
----
-class: inverse, center, middle
-
-# So what _is_ a good prior?
-
----
-
-![](img/gabry_et_al_fig.png)
-
-.footnote[
-Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman. « Visualization in Bayesian Workflow ». Journal of the Royal Statistical Society: Series A (Statistics in Society) 182 (2): 389‑402. https://doi.org/10.1111/rssa.12378.
-]
-
 
 ---
 
@@ -158,6 +160,9 @@ insect_samples <- brm(insects_bf,
                       sample_prior = "only")
 ```
 
+---
+
+
 
 ---
 
@@ -165,11 +170,11 @@ insect_samples <- brm(insects_bf,
 
 using data from [Kaggle, about fish](https://www.kaggle.com/aungpyaeap/fish-market)
 
-```{r message=FALSE}
+```{r message=FALSE, tidy=TRUE, results='asis'}
 library(readr)
 fish <- read_csv("https://raw.githubusercontent.com/aammd/ISEC_stan_course/master/Fish.csv")
 
-knitr::kable(head(fish))
+knitr::kable(head(fish), format = 'html')
 ```
 
 ---
