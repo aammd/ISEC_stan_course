@@ -6,7 +6,7 @@ library(tidybayes)
 
 #data from https://www.kaggle.com/aungpyaeap/fish-market
 
-fish <- read_csv("Fish.csv")
+fish <- read_csv("https://raw.githubusercontent.com/aammd/ISEC_stan_course/master/Fish.csv")
 glimpse(fish)
 
 fish %>% 
@@ -42,13 +42,15 @@ ft_model_prior <- brm(fishtubes,
                       prior = fish_prior,
                       sample_prior = "only")
 
-library(tidybayes)
-
 fish %>% 
   add_predicted_draws(ft_model_prior, n = 12) %>% 
   ggplot(aes(x = Height, y = .prediction)) + 
   geom_point(alpha = 0.4) + 
   facet_wrap(~.draw)
+
+
+
+#### End day 1! ################
 
 
 ## fit the model for real
