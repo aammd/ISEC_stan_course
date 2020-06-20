@@ -1,0 +1,572 @@
+---
+title: "Stan @ ISEC 2020"
+subtitle: ""
+author: "The Crew"
+date: "20 June 2020"
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      highlightStyle: solarized-light
+      highlightLines: true
+      countIncrementalSlides: false
+---
+class: inverse, center, middle
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+
+library(ggplot2)
+
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_solarized_light()
+```
+
+# Building a Logistic Regression Model
+
+
+---
+## Cabo Pulmo, Baja California Sur, México
+
+.center[![cabo pulmo](photos/cabopulmosearch.png)]
+
+---
+## Pelagios Kakunjá -- Bull Shark Data
+
+Frida Lara -- http://migramar.org/hi/en/lara/
+
+James Ketchum -- https://www.pelagioskakunja.org/james-ketchum
+
+.center[![pelagios](photos/pelagioskakunja.png)]
+
+https://www.pelagioskakunja.org/
+
+
+---
+## Presence/Absence Data from an Acoustic Array 
+
+.pull-left[
+$Y$ can takes on the value of `1` when the shark is detected, and `0` when it is not. 
+
+Observation Process: 
+
+
+$$
+Y \sim Bernoulli(p)
+$$
+
+Prior: 
+
+$$
+p \sim unif(0, 1)
+$$
+$$
+p \sim beta(1, 1)
+$$
+]
+
+.pull-right[
+Photo by Miguel Grau Gómez: 
+
+```{r, echo=FALSE, out.width ="70%"}
+knitr::include_graphics("photos/bullshark_acousticarray.jpg")
+```
+]
+
+---
+## Stan Code
+  
+```{stan, output.var = "ex1", eval=F}
+
+data{
+  int<lower=1> TT;
+  int y[TT];
+}
+
+parameters{
+  real<lower=0, upper=1> p;
+}
+
+
+model{
+
+  p ~ uniform(0, 1);
+  //p ~ beta(1,1);
+
+  y ~ bernoulli(p);
+}
+
+```
+
+.footnote[Order doesn't matter in the model code.]
+
+
+---
+class: center
+### Priors over the interval (0,1): 
+
+Combinations: 
+
+( $\nu_1 = 1, \nu_2=1$ ), ( $\nu_1=2, \nu_2=1$ ) , ( $\alpha=1, \beta=2$ )
+
+( $\alpha=10, \beta=1$ ), ( $\alpha=1, \beta=10$ ), ( $\alpha=10, \beta=10$ )
+
+```{r, echo=FALSE, fig.height=5}
+
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+alpha = c(1, 2, 1, 10, 1, 10)
+beta = c(1, 1, 2, 1, 10, 10)
+x01 <- data.frame(x=c(0, 1))
+
+betaplot <- ggplot(x01, aes(x)) 
+
+for(g in 1:6)
+  betaplot <- betaplot + 
+  stat_function(fun=dbeta, args=list(shape1=alpha[g], shape2=beta[g]), color=cbPalette[g], size=1) 
+  
+betaplot + theme_minimal() + ylab("f(x)")
+  
+```
+
+
+---
+### Is the probability constant over time? 
+
+$Y$ can takes on the value of `1` when the shark is detected, and `0` when it is not. 
+
+
+$$
+Y_t \sim Bernoulli(p_t)
+$$
+
+$$
+logit(p_t) = f(t)
+$$
+ Commonly, $f(t)$ is expressed as a linear function of parameters and covariate values. 
+ 
+$$
+f(t) = \beta_0 + \beta_1 x_t
+$$
+
+Priors: 
+ 
+$$\beta_0 \sim N(m_{\beta_0}, sd_{\beta_0})  \qquad \beta_1 \sim N(0, sd_{\beta_1})$$
+
+.footnote[ $f(t)$ can also be a smooth non-linear function! -- `brms`, `rstanarm`] 
+ 
+
+---
+### Stan Code
+  
+Changes: allowing for time-varying covariates  
+  
+  
+```{stan, output.var = "ex2", eval=F}
+
+data{
+  int<lower=1> TT;
+  int y[TT];
+
+  int<lower=1> ncov;
+  matrix[TT, ncov + 1] x;
+}
+
+parameters{
+  vector[ncov + 1] beta;
+}
+
+
+model{
+ 
+ beta ~ normal(0, 0.5);
+
+ y ~ bernoulli_logit(x*beta);
+}
+
+```
+
+
+---
+## Accounting for individual size/sex differences
+
+We may expect and want to account for differences across size and sex. 
+
+$$f(t) = \beta_0 (sex, size) + \beta_1 * x_t$$
+
+
+
+
+$$\beta_0 (sex, size) = \alpha_0 + \alpha_1 *male + \alpha_2 *(size - baselinesize)$$
+
+Where we have: 
+
+
+
+$$
+male = 1 \quad \text{if shark is male (has claspers); zero o.w.}
+$$
+
+$$
+baselinesize: \text{ e.g. size at which the sharks reach maturity, here approx. 220 cm }
+$$
+
+---
+## Stan Code 
+
+Changes: removing intercept term $\beta_0$ and allowing it to reflect baseline differences across sharks. Change `x` to no longer contain a column of ones. 
+  
+.pull-left[  
+```{stan, output.var = "ex2", eval=F}
+
+data{
+  ...
+  int<lower=1> ncov;
+  matrix[TT, ncov] x;
+  
+  vector[TT] bsize;
+  int sex[TT];
+}
+
+parameters{
+  vector[ncov] beta;
+  vector[3] alpha;
+}
+```
+]
+
+
+.pull-right[
+```{stan, output.var="ex21", eval=F}
+
+model{
+ alpha[1] ~ normal(0, 0.5);
+ alpha[2] ~ normal(0, 0.5);
+ //values range from -40 to 40
+ alpha[3] ~ normal(0, 0.1);
+ beta ~ normal(0, 0.5);
+ y ~ bernoulli_logit(alpha[1] + 
+                    alpha[2]*sex + 
+                    alpha[3]*bsize +
+                    x*beta);
+}
+
+```
+]
+
+---
+class: inverse, middle
+# Missing Discrete-Valued Covariates
+## (or categorical covariates)
+
+---
+class: middle, center
+### Marginalizing over discrete-valued covariates/categorical covariates
+
+
+`Law of Total Probability`
+
+$$P(Y) = \sum_{n=1}^N P(Y|X = x_n)P(X=x_n)$$
+
+---
+### Marginalizing in the shark example
+Sex $\in$ {female, male}  $\rightarrow$ {0, 1}
+
+
+We go from this: 
+
+$$
+Y_t \sim Bernoulli(p_t)
+$$
+
+
+To: 
+
+$$
+Y_t \sim \pi Bernoulli(p_t(female)) + (1-\pi)Bernoulli(p_t(male))
+$$
+$\pi \in (0, 1)$
+
+$$p_t(female) = \beta_0(female, size) + \beta_1x_t$$
+
+$$p_t(male) = \beta_0(male, size) + \beta_1x_t$$
+
+
+Where $\pi$ represents the probability that the shark is female. 
+
+---
+## Stan Code
+Changes: need to identify the observations from the shark that is missing a value for sex.
+
+```{stan, output.var="ex3", eval=F}
+data{
+  int<lower=1> TT;
+  int y[TT];
+  
+  //vector with 1 if sex is missing
+  int sexmissing[TT];
+  int<lower=1> ncov;
+  matrix[TT, ncov] x;
+  
+  vector bsize[TT];
+  vector sex[TT];
+
+}
+
+parameters{
+  vector[ncov] beta;
+  vector[3] alpha;
+
+  real<lower=0, upper=1> pi;
+}
+```
+
+
+---
+## Stan Code
+Changes: need to identify the observations from the shark that is missing a value for sex.
+
+```{stan, output.var="ex31", eval=F}
+model{
+ ...
+ for(t in 1:TT){
+  if(sexmissing[t] == 1){
+    target += log_mix(pi, 
+                bernoulli_logit_lpmf(y[t] | alpha[1] + 
+                    alpha[3]*bsize +
+                    x[t]*beta), 
+                bernoulli_logit_lpmf(y[t] | alpha[1] + 
+                    alpha[2] + 
+                    alpha[3]*bsize[t] +
+                    x[t]*beta));
+  } else {
+    y[t] ~ bernoulli_logit(alpha[1] +
+                    alpha[2]*sex[t]
+                    alpha[3]*bsize[t] +
+                    x[t]*beta);
+  }
+ }
+}
+```
+
+
+---
+class: inverse
+
+## A very not profound overview of a hierarchical model but definitely an example of one
+
+
+---
+## More differences across individuals
+
+A simple hierarchical model: 
+
+$$Y_{jt} \sim Bernoulli(p_{jt})$$
+
+
+
+$$logit(p_{jt}) = \beta_0 (sex, size) + \beta_{j1} * x_t$$
+
+
+$$\beta_{j1} \sim N(\mu, \sigma)$$
+$$\mu \sim N(m_{\mu}, s_{\mu}) \quad \sigma \sim N^+(m_{\sigma}, s_{\sigma})$$
+Why might this be important to include? Aside from the differences across individuals related to their sex and size (related to maturity), the sharks may not all have the same temporal patterns. Some may arrive before others, leave a bit later, and understanding individual variation plays an important role in their conservation. 
+
+---
+## Stan Code
+
+Changes: have an index for individual shark and $\beta_1$ is now a hierarchical term in the model
+
+
+```{stan, output.var = "ex4", eval=F}
+data{
+   ...
+  int no.sharks;
+  vector[TT] sharkid;
+}
+
+parameters{
+  ...
+  vector[no.sharks] beta;
+  real betamu;
+  real<lower=0> betasig;
+}
+```
+
+---
+## Stan Code
+
+Changes: have an index for individual shark and $\beta_1$ is now a hierarchical term in the model
+
+
+```{stan, output.var="ex41", eval=F}
+model{
+ alpha[1] ~ normal(0, 0.5);
+ alpha[2] ~ normal(0, 0.5);
+ //values range from -40 to 40
+ alpha[3] ~ normal(0, 0.1);
+ 
+ betamu ~ normal(0, 0.1);
+ betasig ~ normal(0, 0.1);
+ 
+ beta ~ normal(betamu, betasig);
+
+ y[t] ~ bernoulli_logit(alpha[1] + alpha[2]*sex[t] +
+                       alpha[3]*bsize[t] + x[t]*beta[sharkid]);
+
+}
+
+```
+
+---
+class: inverse
+# Model Assessment: 
+
+# To Describe, Explain or Predict? 
+
+
+
+
+---
+### Describe(/Explain): 
+
+- Use full data set to fit model
+- Evaluate posterior predictive checks
+- For logistic regression, `binned residuals for discrete data`
+
+
+Bayesian Data Analysis: http://www.stat.columbia.edu/~gelman/book/ (pg 157-158)
+
+Galit Shmueli's: To Explain or Predict? https://www.stat.berkeley.edu/~aldous/157/Papers/shmueli.pdf
+
+---
+class: inverse 
+## Predict: `projpred`
+
+### Projection predictive variable selection
+
+
+```{r, eval=F}
+library(rstanarm)
+library(projpred)
+library(ggplot2)
+library(bayesplot)
+theme_set(theme_classic())
+```
+
+https://mc-stan.org/projpred/articles/quickstart.html
+
+---
+### projpred
+
+Back to the fixed effects for a minute: 
+
+```{r, eval=F}
+n <- 4000
+D <- 5
+p0 <- 2 # prior guess for the number of relevant variables
+tau0 <- p0/(D-p0) * 1/sqrt(n) 
+# regularized horseshoe prior
+prior_coeff <- hs(global_scale = tau0, slab_scale = 1) 
+
+
+logregcov.horseshoe <- stan_glm(formula = Presence~., 
+                      family = binomial(link="logit"), 
+                      data = sharkfun, 
+                      prior = hs(global_scale = 0.03049858, 
+                                 slab_scale = 1))
+
+logregcov.defaultpriors <- stan_glm(formula = Presence~., 
+                      family = binomial(link="logit"), 
+                      data = sharkfun)
+
+logregcov.n01 <- stan_glm(formula = Presence~., 
+                      family = binomial(link="logit"), 
+                      data = sharkfun, 
+                      prior = normal(0,1))
+
+
+```
+
+---
+### projpred (cont.)
+
+K-fold Cross-Validation: 
+
+```{r, eval=F}
+cvs.horseshoe <- cv_varsel(logregcov.horseshoe, 
+                           method='forward', 
+                           cv_method='kfold', K=5)
+
+cvplot.horseshoe <- varsel_plot(cvs.horseshoe, 
+                                stats=c('elpd, acc'))  + 
+  theme_minimal() + theme(text=element_text(size=15), 
+                          legend.position = "none") + 
+  ggtitle("Classification Accuracy (5-fold CV)")
+
+```
+
+---
+### What you can get from projpred: 
+
+-- Out-of-sample and In-sample accuracies
+
+```{r, eval=F}
+
+## out of sample predictive accuracies
+cvplot.horseshoe
+
+```
+
+
+-- Suggested size of the models
+
+```{r, eval=F}
+## suggested size
+suggest_size(cvs)
+```
+
+
+-- Order of the variables
+```{r, eval=F}
+vs <- varsel(logregcov.horseshoe, method='forward')
+vs$vind
+varsel_plot(vs, stats=c('elpd', 'acc'), deltas=F)
+
+#----------
+
+cvs.horseshoe$vind
+```
+
+---
+### Other: Occupancy Models
+
+
+Observation process: 
+
+$$Y \sim Bernoulli(Zp)$$
+Latent process: 
+
+$$Z \sim Bernoulli(\psi)$$
+
+
+$Z$ -- True occupancy
+
+$p$ -- Detection probability
+
+Not logistic regression as usually thought of, but similar structure and can easily put into Stan as well. Can extend to Binomial/Poisson structures. 
+
+
+---
+class: inverse, center
+### Last Slide for Now
+
+Check out: https://stanecology.github.io
+
+![](https://media.giphy.com/media/IoP0PvbbSWGAM/giphy.gif)
+
+
