@@ -1,6 +1,5 @@
-library(ggplot2)
+
 library(tidyverse)
-library(magrittr)
 library(brms)
 library(tidybayes)
 
@@ -8,16 +7,10 @@ library(tidybayes)
 
 fish <- read_csv("https://raw.githubusercontent.com/aammd/ISEC_stan_course/master/Fish.csv")
 glimpse(fish)
-
-fish %>% 
-  ggplot(aes(x = Height, y = Weight)) + geom_point() +
-  facet_wrap(~Species)
-
-names(fish)
-
-fish$xsection <- (fish$Height/2)^2
-glimpse(fish)
-
+# 
+# fish %>% 
+#   ggplot(aes(x = Height, y = Weight)) + geom_point() +
+#   facet_wrap(~Species)
 
 # bayesian model with brms ------------------------------------------------
 
@@ -48,6 +41,11 @@ fish %>%
   geom_point(alpha = 0.4) + 
   facet_wrap(~.draw)
 
+
+# Exercise 2
+# Within a group, experiment with changing the prior on the SD of the random effect
+# How "large" should this value be? 
+# Share some results from your explorations in Slack
 
 
 #### End day 1! ################
