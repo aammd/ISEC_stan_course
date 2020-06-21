@@ -23,73 +23,6 @@ class: center, middle, inverse, title-slide
 
 
 
-
----
-class: inverse, center, middle
-
-# setup
-
----
-
-# Tools we'll use
-
-* brms
-* tidybayes
-
-
-```r
-devtools::install_github()
-```
-
---
-
-- Click the `Knit` button to compile it;
-
----
-
-![](img/gabry_et_al_fig.png)
-
-.footnote[
-Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman. « Visualization in Bayesian Workflow ». Journal of the Royal Statistical Society: Series A (Statistics in Society) 182 (2): 389‑402. https://doi.org/10.1111/rssa.12378.
-]
----
-
-# remark.js vs xaringan
-
-Some differences between using remark.js (left) and using **xaringan** (right):
-
-.pull-left[
-1. Start with a boilerplate HTML file;
-
-1. Plain Markdown;
-
-1. Write JavaScript to autoplay slides;
-
-1. Manually configure MathJax;
-
-1. Highlight code with `*`;
-
-1. Edit Markdown source and refresh browser to see updated slides;
-]
-
-.pull-right[
-1. Start with an R Markdown document;
-
-1. R Markdown (can embed R/other code chunks);
-
-1. Provide an option `autoplay`;
-
-1. MathJax just works;&lt;sup&gt;*&lt;/sup&gt;
-
-1. Highlight code with `{{}}`;
-
-1. The RStudio addin "Infinite Moon Reader" automatically refreshes slides on changes;
-]
-
-.footnote[[*] Not really. See next page.]
-
----
-
 # Bayesian models
 
 $$
@@ -117,20 +50,53 @@ $$
 .footnote[as seen in Kéry &amp; Royle 2016 p 188]
 
 ---
+class: inverse, center, middle
 
-# what does this prior mean
-
-lets do an example about my favourites: fly larvae! 
-
-(picture of a lil fly)
-
-(a model)
+# So what _is_ a good prior?
 
 ---
 
-# either no flies at all.. or a huge planet of maggots
+![](img/gabry_et_al_fig.png)
 
-etc
+.footnote[
+Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman. « Visualization in Bayesian Workflow ». Journal of the Royal Statistical Society: Series A (Statistics in Society) 182 (2): 389‑402. https://doi.org/10.1111/rssa.12378.
+]
+
+
+---
+
+# what does this prior mean?
+
+$$
+`\begin{align}
+F_i &amp; \sim \text{Poisson}(\lambda_i) \\
+\text{log}(\lambda_i) &amp;= \alpha + \beta x \\
+\alpha &amp; \sim \text{Normal}(0, 1000) \\
+\beta &amp; \sim \text{Normal}(0, 1000)
+\end{align}`
+$$
+
+---
+
+# what does this prior mean?
+
+lets do an example about my favourites: fly larvae! 
+
+.pull-left[
+&lt;img src="img/lil_larv.png" style="width: 70%" /&gt;
+]
+
+.pull-right[
+$$
+`\begin{align}
+F_i &amp; \sim \text{Poisson}(\lambda_i) \\
+\text{log}(\lambda_i) &amp;= \alpha + \beta x \\
+\alpha &amp; \sim \text{Normal}(0, 1000) \\
+\beta &amp; \sim \text{Normal}(0, 1000)
+\end{align}`
+$$
+where `\(x\)` is some kind of standardized environmental variable
+]
 
 ---
 
@@ -156,31 +122,152 @@ And since `\(N(0,1000)\)` implies that -1000 and +1000 are entirely reasonable..
 * (..kind of a lot)
 ]
 
-
----
-class: inverse, center, middle
-
-# So what _is_ a good prior?
-
 ---
 
-![](img/gabry_et_al_fig.png)
+# either no flies at all.. or a huge planet of maggots 
 
-.footnote[
-Gabry, Jonah, Daniel Simpson, Aki Vehtari, Michael Betancourt, and Andrew Gelman. « Visualization in Bayesian Workflow ». Journal of the Royal Statistical Society: Series A (Statistics in Society) 182 (2): 389‑402. https://doi.org/10.1111/rssa.12378.
-]
+&lt;img src="img/many_insects.png" style="width: 70%" /&gt;
+
+for comparison, the planet Saturn weighs 5.7 * 10^29 grams
 
 ---
 
 # syntax: brms
 
+```r
+# define formula
+
+insects_bf &lt;- bf(
+abundance ~ 1 + env, 
+family = poisson()
+)
+```
+
 ---
 
 # syntax: setting priors
 
+```r
+get_prior(insects_bf, data = insect_data)
+
+insect_priors &lt;- c(
+  prior(normal(0,100), class = "b", coef = "env"),
+  prior(normal(0,100), class = "Intercept")
+)
+```
+
 ---
 
-exercises -- les poissons
+# syntax: sampling the model
+
+```r
+insect_samples &lt;- brm(insects_bf,
+                      data = insect_data,  # does nothing
+                      prior = insect_priors,
+                      sample_prior = "only")
+```
+
+---
+
+# Exercise I -- Fly larvae
+
+* see the file `insects.R` on [github](https://github.com/aammd/ISEC_stan_course/blob/996eb5b2f49c52b0290c63a6635f925104bb623b/insects.R)
+
+* on your own or in a small group, experiment with setting priors for insect abundances.
+* AND/OR consider an animal or plant which is more relevant to you 
+* or stay with insects even if that is not your specialty, and set "vague" priors!
+
+---
+
+# exercises -- les poissons
+
+using data from [Kaggle, about fish](https://www.kaggle.com/aungpyaeap/fish-market)
+
+
+```r
+library(readr)
+fish &lt;- read_csv("https://raw.githubusercontent.com/aammd/ISEC_stan_course/master/Fish.csv")
+
+knitr::kable(head(fish), format = 'html')
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Species &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Weight &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Length1 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Length2 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Length3 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Height &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Width &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Bream &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 242 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 23.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25.4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 11.5200 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.0200 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Bream &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 290 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 26.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 31.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 12.4800 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.3056 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Bream &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 340 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 23.9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 26.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 31.1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 12.3778 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.6961 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Bream &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 363 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 26.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 29.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 33.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 12.7300 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.4555 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Bream &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 430 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 26.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 29.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 34.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 12.4440 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.1340 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Bream &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 450 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 26.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 29.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 34.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 13.6024 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.9274 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+
+![](img/fish.png)
+
+---
+
+
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>

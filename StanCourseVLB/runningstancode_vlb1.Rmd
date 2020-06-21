@@ -34,7 +34,7 @@ alpha[3] <- 0.01
 ## number of `sharks` = 20
 
 sex <- rbinom(20, size=1, prob=0.5)
-size <- rpois(20, lambda=200) ## in cm
+size <- rpois(20, lambda=220) ## in cm
 
 y <- list()
 for(n in 1:20){
@@ -140,19 +140,21 @@ prior_coeff <- hs(global_scale = tau0, slab_scale = 1)
 #----------------------------------------------------------------------
 ## FITTING THE MODELS
 
-logregcov.horseshoe <- stan_glm(formula = Presence~., 
+logregcov.horseshoe <- stan_glm(formula = Presence ~ Sex + BSize + timecos + timesin, 
                       family = binomial(link="logit"), 
-                      data = sharkfun%>%dplyr::select(-Shark), 
+                      data = sharkfun%>%dplyr::select(-Shark)%>%mutate(BSize = Size - 220), 
                       prior = hs(global_scale = 0.007802743, 
                                  slab_scale = 1))
 
-logregcov.defaultpriors <- stan_glm(formula = Presence~., 
-                      family = binomial(link="logit"), 
-                      data = sharkfun%>%dplyr::select(-Shark))
+#launch_shinystan(logregcov.horseshoe)
 
-logregcov.n01 <- stan_glm(formula = Presence~., 
+logregcov.defaultpriors <- stan_glm(formula = Presence ~ Sex + BSize + timecos + timesin, 
                       family = binomial(link="logit"), 
-                      data = sharkfun%>%dplyr::select(-Shark), 
+                      data = sharkfun%>%dplyr::select(-Shark)%>%mutate(BSize = Size - 220))
+
+logregcov.n01 <- stan_glm(formula = Presence ~ Sex + BSize + timecos + timesin, 
+                      family = binomial(link="logit"), 
+                      data = sharkfun%>%dplyr::select(-Shark)%>%mutate(BSize = Size - 220), 
                       prior = normal(0,1))
 
 
@@ -164,14 +166,14 @@ cvs.horseshoe <- cv_varsel(logregcov.horseshoe,
                            cv_method='kfold', K=5)
 
 cvplot.horseshoe <- varsel_plot(cvs.horseshoe, 
-                                stats=c('elpd, acc'))  + 
+                                stats=c('elpd', 'acc'))  + 
   theme_minimal() + theme(text=element_text(size=15), 
                           legend.position = "none") + 
   ggtitle("Classification Accuracy (5-fold CV)")
 
 cvplot.horseshoe
 
-suggest_size(cvs)
+suggest_size(cvs.horseshoe)
 
 vs <- varsel(logregcov.horseshoe, method='forward')
 vs$vind
@@ -184,7 +186,38 @@ cvs.horseshoe$vind
 ```
 
 
+## Trying to have the covariates on approximately the same scale...let's see how that works out
+```{r}
 
+logregscaledcov.horseshoe <- stan_glm(formula = Presence ~ Sex + BSize + timecos + timesin, 
+                      family = binomial(link="logit"), 
+                      data = sharkfun%>%dplyr::select(-Shark)%>%mutate(BSize = (Size - 220)/30), 
+                      prior = hs(global_scale = 0.007802743, 
+                                 slab_scale = 1))
 
+#----------------------------------------------------------------------
+## K-FOLD CROSS-VALIDATION
 
+cvs.horseshoe2 <- cv_varsel(logregscaledcov.horseshoe, 
+                           method='forward', 
+                           cv_method='kfold', K=5)
 
+cvplot.horseshoe2 <- varsel_plot(cvs.horseshoe2, 
+                                stats=c('elpd', 'acc'))  + 
+  theme_minimal() + theme(text=element_text(size=15), 
+                          legend.position = "none") + 
+  ggtitle("Classification Accuracy (5-fold CV)")
+
+cvplot.horseshoe2
+
+suggest_size(cvs.horseshoe2)
+
+vs2 <- varsel(logregscaledcov.horseshoe, method='forward')
+vs2$vind
+varsel_plot(vs2, stats=c('elpd', 'acc'), deltas=F)
+
+#----------
+
+cvs.horseshoe2$vind
+
+```
