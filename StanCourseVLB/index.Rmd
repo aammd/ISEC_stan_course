@@ -345,7 +345,7 @@ model{
                     x[t]*beta));
   } else {
     y[t] ~ bernoulli_logit(alpha[1] +
-                    alpha[2]*sex[t]
+                    alpha[2]*sex[t] + 
                     alpha[3]*bsize[t] +
                     x[t]*beta);
   }
@@ -385,13 +385,13 @@ Changes: have an index for individual shark and $\beta_1$ is now a hierarchical 
 ```{stan, output.var = "ex4", eval=F}
 data{
    ...
-  int no.sharks;
+  int nsharks;
   vector[TT] sharkid;
 }
 
 parameters{
   ...
-  vector[no.sharks] beta;
+  vector[nsharks] beta;
   real betamu;
   real<lower=0> betasig;
 }
@@ -466,7 +466,7 @@ https://mc-stan.org/projpred/articles/quickstart.html
 Back to the fixed effects for a minute: 
 
 ```{r, eval=F}
-n <- 4000
+n <- 7300
 D <- 5
 p0 <- 2 # prior guess for the number of relevant variables
 tau0 <- p0/(D-p0) * 1/sqrt(n) 
@@ -477,7 +477,7 @@ prior_coeff <- hs(global_scale = tau0, slab_scale = 1)
 logregcov.horseshoe <- stan_glm(formula = Presence~., 
                       family = binomial(link="logit"), 
                       data = sharkfun, 
-                      prior = hs(global_scale = 0.03049858, 
+                      prior = hs(global_scale = 0.007802743, 
                                  slab_scale = 1))
 
 logregcov.defaultpriors <- stan_glm(formula = Presence~., 

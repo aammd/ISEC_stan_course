@@ -111,9 +111,9 @@ class: center
 
 Combinations: 
 
-( $\nu_1 = 1, \nu_2=1$ ), ( $\nu_1=2, \nu_2=1$ ) , ( $\alpha=1, \beta=2$ )
+( $\nu_1 = 1, \nu_2=1$ ), ( $\nu_1=2, \nu_2=1$ ) , ( $\nu_1=1, \nu_2=2$ )
 
-( $\alpha=10, \beta=1$ ), ( $\alpha=1, \beta=10$ ), ( $\alpha=10, \beta=10$ )
+( $\nu_1=10, \nu_2=1$ ), ( $\nu_1=1, \nu_2=10$ ), ( $\nu_1=10, \nu_2=10$ )
 
 ```{r, echo=FALSE, fig.height=5}
 
@@ -415,8 +415,10 @@ model{
  
  beta ~ normal(betamu, betasig);
 
- y[t] ~ bernoulli_logit(alpha[1] + alpha[2]*sex[t] +
-                       alpha[3]*bsize[t] + x[t]*beta[sharkid]);
+ for(t in 1:TT){
+   y[t] ~ bernoulli_logit(alpha[1] + alpha[2]*sex[t] +
+                       alpha[3]*bsize[t] + x[t]*beta[sharkid[t]]);
+ }
 
 }
 
@@ -470,24 +472,23 @@ n <- 7300
 D <- 5
 p0 <- 2 # prior guess for the number of relevant variables
 tau0 <- p0/(D-p0) * 1/sqrt(n) 
-# regularized horseshoe prior
-prior_coeff <- hs(global_scale = tau0, slab_scale = 1) 
-
+#prior_coeff <- hs(global_scale = tau0, slab_scale = 1) 
 
 logregcov.horseshoe <- stan_glm(formula = Presence~., 
                       family = binomial(link="logit"), 
-                      data = sharkfun, 
-                      prior = hs(global_scale = 0.007802743, 
-                                 slab_scale = 1))
+                      data = sharkfun%>%dplyr::select(-Shark)%>%
+                        mutate(BSize = Size - 220), 
+                      prior = hs(global_scale = 0.007802743, slab_scale = 1))
 
 logregcov.defaultpriors <- stan_glm(formula = Presence~., 
                       family = binomial(link="logit"), 
-                      data = sharkfun)
+                      data = sharkfun%>%dplyr::select(-Shark)%>%
+                        mutate(BSize = Size - 220))
 
 logregcov.n01 <- stan_glm(formula = Presence~., 
                       family = binomial(link="logit"), 
-                      data = sharkfun, 
-                      prior = normal(0,1))
+                      data = sharkfun%>%%>%dplyr::select(-Shark)
+                       mutate(BSize = Size - 220), prior = normal(0,1))
 
 
 ```
