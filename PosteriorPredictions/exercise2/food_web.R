@@ -30,9 +30,9 @@ d <- list(
 # sample models -----------------------------------------------------------
 
 betabin_samples <- rstan::sampling(betabin, data = d, iter = 2000, chains = 4)
-conscon_samples <- rstan::sampling(conscon, data = d, iter = 2000, chains = 4, cores = 4)
-lsslmod_samples <- rstan::sampling(lsslmod, data = d, iter = 2000, chains = 4, cores = 4)
-powrlaw_samples <- rstan::sampling(powrlaw, data = d, iter = 2000, chains = 4, cores = 4)
+conscon_samples <- rstan::sampling(conscon, data = d, iter = 2000, chains = 4)
+lsslmod_samples <- rstan::sampling(lsslmod, data = d, iter = 2000, chains = 4)
+powrlaw_samples <- rstan::sampling(powrlaw, data = d, iter = 2000, chains = 4)
 
 obs_links <- d$L
 shinystan::launch_shinystan(betabin_samples)
