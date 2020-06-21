@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<html lang="" xml:lang="">
   <head>
     <title>Stan @ ISEC 2020</title>
     <meta charset="utf-8" />
@@ -107,9 +107,9 @@ class: center
 
 Combinations: 
 
-( `\(\nu_1 = 1, \nu_2=1\)` ), ( `\(\nu_1=2, \nu_2=1\)` ) , ( `\(\alpha=1, \beta=2\)` )
+( `\(\nu_1 = 1, \nu_2=1\)` ), ( `\(\nu_1=2, \nu_2=1\)` ) , ( `\(\nu_1=1, \nu_2=2\)` )
 
-( `\(\alpha=10, \beta=1\)` ), ( `\(\alpha=1, \beta=10\)` ), ( `\(\alpha=10, \beta=10\)` )
+( `\(\nu_1=10, \nu_2=1\)` ), ( `\(\nu_1=1, \nu_2=10\)` ), ( `\(\nu_1=10, \nu_2=10\)` )
 
 ![](stanhour3_files/figure-html/unnamed-chunk-3-1.png)&lt;!-- --&gt;
 
@@ -330,7 +330,7 @@ model{
                     x[t]*beta));
   } else {
     y[t] ~ bernoulli_logit(alpha[1] +
-                    alpha[2]*sex[t]
+                    alpha[2]*sex[t] + 
                     alpha[3]*bsize[t] +
                     x[t]*beta);
   }
@@ -371,13 +371,13 @@ Changes: have an index for individual shark and `\(\beta_1\)` is now a hierarchi
 ```stan
 data{
    ...
-  int no.sharks;
+  int nsharks;
   vector[TT] sharkid;
 }
 
 parameters{
   ...
-  vector[no.sharks] beta;
+  vector[nsharks] beta;
   real betamu;
   real&lt;lower=0&gt; betasig;
 }
@@ -402,8 +402,10 @@ model{
  
  beta ~ normal(betamu, betasig);
 
- y[t] ~ bernoulli_logit(alpha[1] + alpha[2]*sex[t] +
-                       alpha[3]*bsize[t] + x[t]*beta[sharkid]);
+ for(t in 1:TT){
+   y[t] ~ bernoulli_logit(alpha[1] + alpha[2]*sex[t] +
+                       alpha[3]*bsize[t] + x[t]*beta[sharkid[t]]);
+ }
 
 }
 
@@ -455,28 +457,27 @@ Back to the fixed effects for a minute:
 
 
 ```r
-n &lt;- 4000
+n &lt;- 7300
 D &lt;- 5
 p0 &lt;- 2 # prior guess for the number of relevant variables
 tau0 &lt;- p0/(D-p0) * 1/sqrt(n) 
-# regularized horseshoe prior
-prior_coeff &lt;- hs(global_scale = tau0, slab_scale = 1) 
-
+#prior_coeff &lt;- hs(global_scale = tau0, slab_scale = 1) 
 
 logregcov.horseshoe &lt;- stan_glm(formula = Presence~., 
                       family = binomial(link="logit"), 
-                      data = sharkfun, 
-                      prior = hs(global_scale = 0.03049858, 
-                                 slab_scale = 1))
+                      data = sharkfun%&gt;%dplyr::select(-Shark)%&gt;%
+                        mutate(BSize = Size - 220), 
+                      prior = hs(global_scale = 0.007802743, slab_scale = 1))
 
 logregcov.defaultpriors &lt;- stan_glm(formula = Presence~., 
                       family = binomial(link="logit"), 
-                      data = sharkfun)
+                      data = sharkfun%&gt;%dplyr::select(-Shark)%&gt;%
+                        mutate(BSize = Size - 220))
 
 logregcov.n01 &lt;- stan_glm(formula = Presence~., 
                       family = binomial(link="logit"), 
-                      data = sharkfun, 
-                      prior = normal(0,1))
+                      data = sharkfun%&gt;%%&gt;%dplyr::select(-Shark)
+                       mutate(BSize = Size - 220), prior = normal(0,1))
 ```
 
 ---
@@ -602,9 +603,25 @@ if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
     }
     deleted = true;
   });
-})();</script>
-
-<script>
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
 (function() {
   var links = document.getElementsByTagName('a');
   for (var i = 0; i < links.length; i++) {
@@ -613,7 +630,23 @@ if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
     }
   }
 })();
-</script>
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
 
 <script>
 slideshow._releaseMath = function(el) {
